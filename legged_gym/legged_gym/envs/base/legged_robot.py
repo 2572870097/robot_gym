@@ -132,6 +132,10 @@ class LeggedRobot(BaseTask):
         self.feet_pos = self.rigid_body_states.view(self.num_envs, self.num_bodies, 13)[:, self.feet_indices, 0:3]
         self.feet_vel = self.rigid_body_states.view(self.num_envs, self.num_bodies, 13)[:, self.feet_indices, 7:10]
 
+        contact = self.contact_forces[:, self.feet_indices, 2] > 2.
+        self.contact_filt = torch.logical_or(contact, self.last_contacts) 
+        self.last_contacts = contact
+
         self._post_physics_step_callback()
 
         # compute observations, rewards, resets, ...
@@ -216,11 +220,15 @@ class LeggedRobot(BaseTask):
             self.extras["episode"]["terrain_level"] = torch.mean(self.terrain_levels.float())
         if self.cfg.commands.curriculum:
             self.extras["episode"]["max_command_x"] = self.command_ranges["lin_vel_x"][1]
+            self.extras["episode"]["max_command_y"] = self.command_ranges["lin_vel_y"][1]
         # send timeout info to the algorithm
         if self.cfg.env.send_timeouts:
             self.extras["time_outs"] = self.time_out_buf
 
         self.episode_length_buf[env_ids] = 0
+
+        self.phase[env_ids,:] = 0
+        self.phase_time[env_ids,:] = 0
     
     def compute_reward(self):
         """ Compute rewards
@@ -440,6 +448,8 @@ class LeggedRobot(BaseTask):
         # 
         env_ids = (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt)==0).nonzero(as_tuple=False).flatten()
         self._resample_commands(env_ids)
+        self._process_phase()
+
         if self.cfg.commands.heading_command:
             forward = quat_apply(self.base_quat, self.forward_vec)
             heading = torch.atan2(forward[:, 1], forward[:, 0])
@@ -451,6 +461,28 @@ class LeggedRobot(BaseTask):
             self._push_robots()
         if self.cfg.domain_rand.disturbance and (self.common_step_counter % self.cfg.domain_rand.disturbance_interval == 0):
             self._disturbance_robots()
+    
+    def _process_phase(self):
+        """update phase value for all actor"""
+        # Check if robot should be moving
+        cmd_vel_norm = torch.norm(self.commands[:, :2], dim=1)
+        yaw_cmd = torch.abs(self.commands[:, 2])
+        is_moving = (cmd_vel_norm > 0.1) | (yaw_cmd > 0.1)
+        
+        # Only update phase for moving robots
+        moving_envs = is_moving.nonzero(as_tuple=False).flatten()
+        still_envs = (~is_moving).nonzero(as_tuple=False).flatten()
+        
+        if len(moving_envs) > 0:
+            self.phase_time[moving_envs] = torch.fmod(self.frequency*self.dt + self.phase_time[moving_envs], 1.0)
+            self.phase[moving_envs] = 2*torch.pi*self.phase_time[moving_envs] + self.trot_gait
+        
+        # Reset phase to neutral state for still robots
+        if len(still_envs) > 0:
+            self.phase_time[still_envs] = 0.0
+            self.phase[still_envs] = 0.0
+        
+        # print("Env 0 phase:", self.phase[0])
 
     def _resample_commands(self, env_ids):
         """ Randommly select commands of some environments
@@ -458,7 +490,7 @@ class LeggedRobot(BaseTask):
         Args:
             env_ids (List[int]): Environments ids for which new commands are needed
         """
-        self.commands[env_ids, 0] = torch_rand_float(-1.0, 1.0, (len(env_ids), 1), device=self.device).squeeze(1)
+        self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         if self.cfg.commands.heading_command:
             self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
@@ -474,7 +506,7 @@ class LeggedRobot(BaseTask):
         self.commands[high_vel_env_ids, 1:2] *= (torch.norm(self.commands[high_vel_env_ids, 0:1], dim=1) < 1.0).unsqueeze(1)
 
         # set small commands to zero
-        self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
+        self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.1).unsqueeze(1)
 
     def _compute_torques(self, actions):
         """ Compute torques from actions.
@@ -590,6 +622,8 @@ class LeggedRobot(BaseTask):
         if (torch.mean(self.episode_sums["tracking_lin_vel"][low_vel_env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]) and (torch.mean(self.episode_sums["tracking_lin_vel"][high_vel_env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]):
             self.command_ranges["lin_vel_x"][0] = np.clip(self.command_ranges["lin_vel_x"][0] - 0.2, -self.cfg.commands.max_curriculum, 0.)
             self.command_ranges["lin_vel_x"][1] = np.clip(self.command_ranges["lin_vel_x"][1] + 0.2, 0., self.cfg.commands.max_curriculum)
+            self.command_ranges["lin_vel_y"][0] = np.clip(self.command_ranges["lin_vel_y"][0] - 0.2, -self.cfg.commands.max_curriculum, 0.)
+            self.command_ranges["lin_vel_y"][1] = np.clip(self.command_ranges["lin_vel_y"][1] + 0.2, 0., self.cfg.commands.max_curriculum)
 
 
     def _get_noise_scale_vec(self, cfg):
@@ -675,10 +709,13 @@ class LeggedRobot(BaseTask):
 
         # joint positions offsets and PD gains
         self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
+        self.default_start_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
         for i in range(self.num_dofs):
             name = self.dof_names[i]
             angle = self.cfg.init_state.default_joint_angles[name]
+            start_angle = self.cfg.init_state.start_joint_angles[name]
             self.default_dof_pos[i] = angle
+            self.default_start_pos[i] = start_angle
             found = False
             for dof_name in self.cfg.control.stiffness.keys():
                 if dof_name in name:
@@ -691,7 +728,22 @@ class LeggedRobot(BaseTask):
                 if self.cfg.control.control_type in ["P", "V"]:
                     print(f"PD gain of joint {name} were not defined, setting them to zero")
         self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
+        self.default_start_pos = self.default_start_pos.unsqueeze(0)
+
+        #phase related
+        self.phase = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
+                                        requires_grad=False)
+        self.phase_time = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
+                                        requires_grad=False)
+        self.frequency = 2.0
         
+        self.trot_gait = torch.zeros(1, 4, dtype=torch.float, device=self.device,requires_grad=False)
+        self.trot_gait[:,0] = torch.pi
+        self.trot_gait[:,-1] = torch.pi
+        print(self.trot_gait)
+
+        self.trot_pattern1 = torch.tensor([1.,0,0,1.],dtype=torch.float, device=self.device,requires_grad=False).view(1,-1)
+        self.trot_pattern2 = torch.tensor([0.,1.,1.,0.],dtype=torch.float, device=self.device,requires_grad=False).view(1,-1)
         
         #randomize kp, kd, motor strength
         self.Kp_factors = torch.ones(self.num_envs, 1, dtype=torch.float, device=self.device, requires_grad=False)
@@ -1155,6 +1207,19 @@ class LeggedRobot(BaseTask):
         height_error = torch.square(footpos_in_body_frame[:, :, 2] - self.cfg.rewards.clearance_height_target).view(self.num_envs, -1)
         foot_leteral_vel = torch.sqrt(torch.sum(torch.square(footvel_in_body_frame[:, :, :2]), dim=2)).view(self.num_envs, -1)
         return torch.sum(height_error * foot_leteral_vel, dim=1)
+
+        # no_contact = 1.*(self.contact_filt == 0)
+
+        # reward = torch.sum(height_error * no_contact, dim=1)
+
+        # total_reward = (torch.norm(self.commands[:, :2], dim=1) > 0.1) * reward
+
+        # return total_reward
+    
+    def _reward_foot_mirror(self):
+        diff1 = torch.sum(torch.square(self.dof_pos[:,[0,1,2]] - self.dof_pos[:,[9,10,11]]),dim=-1)
+        diff2 = torch.sum(torch.square(self.dof_pos[:,[3,4,5]] - self.dof_pos[:,[6,7,8]]),dim=-1)
+        return 0.5*(diff1 + diff2)
     
     def _reward_action_rate(self):
         # Penalize changes in actions
@@ -1196,17 +1261,44 @@ class LeggedRobot(BaseTask):
         return torch.sum((torch.abs(self.torques) - self.torque_limits*self.cfg.rewards.soft_torque_limit).clip(min=0.), dim=1)
 
     def _reward_feet_air_time(self):
-        # Reward long steps
+        # Reward long steps when moving, penalize air time when standing still
         # Need to filter the contacts because the contact reporting of PhysX is unreliable on meshes
-        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+        contact = self.contact_forces[:, self.feet_indices, 2] > 2.
         contact_filt = torch.logical_or(contact, self.last_contacts) 
         self.last_contacts = contact
         first_contact = (self.feet_air_time > 0.) * contact_filt
         self.feet_air_time += self.dt
-        rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
-        rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
+        
+        # Check if robot should be moving
+        cmd_vel_norm = torch.norm(self.commands[:, :2], dim=1)
+        yaw_cmd = torch.abs(self.commands[:, 2])
+        is_moving = (cmd_vel_norm > 0.1) | (yaw_cmd > 0.1)
+        
+        # When moving: reward long steps (original behavior)
+        rew_airTime_moving = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1)
+        rew_airTime_moving *= is_moving.float()
+        
+        # When standing still: penalize any air time
+        rew_airTime_standing = -torch.sum(self.feet_air_time * ~contact_filt, dim=1)
+        rew_airTime_standing *= (~is_moving).float()
+        
+        # Combine rewards
+        rew_airTime = rew_airTime_moving + rew_airTime_standing * 3.0
+        
         self.feet_air_time *= ~contact_filt
         return rew_airTime
+    
+    def _reward_foot_slide(self):
+        cur_footvel_translated = self.feet_vel - self.root_states[:, 7:10].unsqueeze(1)
+        footvel_in_body_frame = torch.zeros(self.num_envs, len(self.feet_indices), 3, device=self.device)
+        for i in range(len(self.feet_indices)):
+            footvel_in_body_frame[:, i, :] = quat_rotate_inverse(self.base_quat, cur_footvel_translated[:, i, :])
+        foot_leteral_vel = torch.sqrt(torch.sum(torch.square(footvel_in_body_frame[:, :, :2]), dim=2)).view(self.num_envs, -1)
+        
+        contact = self.contact_forces[:, self.feet_indices, 2] > 2.
+        contact_filt = torch.logical_or(contact, self.last_contacts)
+        cost_slide = torch.sum(contact_filt * foot_leteral_vel, dim=1)
+        return cost_slide
     
     def _reward_stumble(self):
         # Penalize feet hitting vertical surfaces
@@ -1215,8 +1307,140 @@ class LeggedRobot(BaseTask):
         
     def _reward_stand_still(self):
         # Penalize motion at zero commands
-        return torch.sum(torch.abs(self.dof_pos - self.default_dof_pos), dim=1) * (torch.norm(self.commands[:, :2], dim=1) < 0.1)
+        return torch.sum(torch.abs(self.dof_pos - self.default_start_pos), dim=1) * (torch.norm(self.commands[:, :2], dim=1) < 0.1)
 
     def _reward_feet_contact_forces(self):
         # penalize high contact forces
         return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) -  self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)
+
+    def _reward_phase_contact(self):
+        # 检测机器人是否在运动
+        cmd_vel_norm = torch.norm(self.commands[:, :2], dim=1)  # 命令线速度
+        yaw_cmd = torch.abs(self.commands[:, 2])  # yaw命令
+        
+        # 定义运动阈值
+        vel_threshold = 0.1  # m/s
+        yaw_threshold = 0.1  # rad/s
+        
+        # 判断是否在运动
+        is_moving = (cmd_vel_norm > vel_threshold) | (yaw_cmd > yaw_threshold)
+        
+        # 运动时：使用相位接触模式（Trot步态）
+        # 注意：当机器人静止时，self.phase = 0，sin(0) = 0，但由于is_moving=False，不会产生奖励
+        phase_contact_goal = 1.*(torch.sin(self.phase) > 0.0)  # 基于相位的期望接触
+        phase_reward = torch.mean(torch.abs(1.*self.contact_filt - phase_contact_goal), dim=1)
+        
+        total_reward = is_moving.float() * phase_reward
+        
+        return total_reward
+    
+    def _reward_trot_contact(self):
+        # 检测机器人是否在运动
+        cmd_vel_norm = torch.norm(self.commands[:, :2], dim=1)  # 命令线速度
+        yaw_cmd = torch.abs(self.commands[:, 2])  # yaw命令
+        
+        # 定义运动阈值
+        vel_threshold = 0.1  # m/s
+        yaw_threshold = 0.1  # rad/s
+        
+        # 判断是否在运动
+        is_moving = (cmd_vel_norm > vel_threshold) | (yaw_cmd > yaw_threshold)
+
+        contact_filt = 1.*self.contact_filt
+        pattern_match1 = torch.mean(torch.abs(contact_filt - self.trot_pattern1),dim=-1)
+        pattern_match2 = torch.mean(torch.abs(contact_filt - self.trot_pattern2),dim=-1)
+        pattern_match_flag = 1.*(pattern_match1*pattern_match2 > 0.0001)
+        return is_moving.float() * pattern_match_flag
+    
+    def _reward_phase_foot_clearance(self):
+        # 检测是否在运动
+        cmd_vel_norm = torch.norm(self.commands[:, :2], dim=1)  # 命令线速度
+        yaw_cmd = torch.abs(self.commands[:, 2])  # yaw命令
+        
+        # 定义运动阈值
+        cmd_vel_threshold = 0.1  # m/s
+        yaw_threshold = 0.1  # rad/s
+        
+        # 判断是否在运动（命令速度大于阈值或实际在移动）
+        is_moving = (cmd_vel_norm > cmd_vel_threshold) | (yaw_cmd > yaw_threshold)
+        
+        # 计算脚部相对于地面的高度
+        feet_heights = self._get_feet_heights()
+        
+        # 目标抬升高度
+        target_clearance_height = 0.12  # 12cm
+    
+        height_error = torch.square(feet_heights[:, :] - target_clearance_height).view(self.num_envs, -1)
+
+        # 注意：当机器人静止时，self.phase = 0，sin(0) = 0，但由于is_moving=False，不会产生奖励
+        height_point_flag = 1.*(torch.sin(self.phase) < 0.0)
+
+        # 只在运动时给奖励
+        phase_clearance_reward = torch.mean(height_point_flag * height_error, dim=1)
+        
+        return is_moving.float() * phase_clearance_reward
+    
+    def _reward_four_feet_contact(self):
+        # 奖励机身速度为0时四只脚全部触地的状态
+        # 检测线速度和角速度cmd是否接近0
+        lin_vel_norm = torch.norm(self.commands[:, :2], dim=1)  # xy方向线速度
+        ang_vel_norm = torch.abs(self.commands[:, 2])  # z轴角速度
+        
+        # 定义"静止"的阈值
+        lin_vel_threshold = 0.1  # m/s
+        ang_vel_threshold = 0.1  # rad/s
+        
+        # 判断是否有命令速度值
+        is_still = ((lin_vel_norm < lin_vel_threshold) & (ang_vel_norm < ang_vel_threshold))
+        
+        # 检测四只脚是否都在接触地面
+        contact_threshold = 2.0  # 接触力阈值
+        feet_contact = self.contact_forces[:, self.feet_indices, 2] > contact_threshold
+        # contact_ratio = torch.mean(1.0 * feet_contact, dim=1)  # 所有脚都接触
+        # contact_reward = contact_ratio ** 2
+        contact_num = torch.sum(feet_contact, dim=1)
+        contact_reward = (contact_num == 4).float()
+        
+        # 只有在无命令速度值时才给予奖励
+        reward = is_still.float() * contact_reward
+        
+        return reward
+
+    def _reward_feet_clearance_during_swing(self):
+        # 奖励运动时腾空足底的抬升高度，防止拖地
+        # 检测是否在运动
+        cmd_vel_norm = torch.norm(self.commands[:, :2], dim=1)  # 命令线速度
+        ang_vel_norm = torch.abs(self.commands[:, 2])  # z轴角速度
+        
+        # 定义运动阈值
+        cmd_vel_threshold = 0.1  # m/s
+        ang_vel_threshold = 0.1  # rad/s
+        
+        # 判断是否在运动（命令速度大于阈值或实际在移动）
+        is_moving = (cmd_vel_norm > cmd_vel_threshold) | (ang_vel_norm > ang_vel_threshold)
+        
+        # 检测脚部接触状态
+        contact_threshold = 2.0  # 接触力阈值
+        feet_contact = self.contact_forces[:, self.feet_indices, 2] > contact_threshold
+        
+        # 计算脚部相对于地面的高度
+        feet_heights = self._get_feet_heights()
+        
+        # 目标抬升高度
+        target_clearance_height = 0.12  # 12cm
+        
+        # 对于腾空的脚，奖励其保持目标高度以上
+        swing_feet_mask = ~feet_contact  # 腾空的脚
+    
+        height_error = torch.square(feet_heights[:, :] - target_clearance_height).view(self.num_envs, -1)
+        
+        # 只对腾空的脚给奖励，并且只在运动时生效
+        swing_clearance_reward = torch.sum(swing_feet_mask.float() * height_error, dim=1)
+        
+        # 额外奖励：防止拖地（惩罚腾空脚高度过低）
+        # drag_penalty = torch.sum(swing_feet_mask.float() * (feet_heights < 0.01).float(), dim=1)
+        
+        # 最终奖励：只在运动时生效
+        total_reward = is_moving.float() * swing_clearance_reward
+        
+        return total_reward

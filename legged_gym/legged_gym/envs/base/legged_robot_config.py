@@ -43,7 +43,7 @@ class LeggedRobotCfg(BaseConfig):
         episode_length_s = 20 # episode length in seconds
 
     class terrain:
-        mesh_type = 'plane' # "heightfield" # none, plane, heightfield or trimesh
+        mesh_type = 'trimesh' # "heightfield" # none, plane, heightfield or trimesh
         horizontal_scale = 0.1 # [m]
         vertical_scale = 0.005 # [m]
         border_size = 25 # [m]
@@ -173,7 +173,7 @@ class LeggedRobotCfg(BaseConfig):
             base_height = -0. 
             feet_air_time =  1.0
             collision = -1.
-            feet_stumble = -0.0 
+            stumble = -0.0 
             action_rate = -0.01
             stand_still = -0.
 

@@ -157,8 +157,8 @@ if __name__ == "__main__":
                 obs[9 + 2 * num_actions : 9 + 3 * num_actions] = action
                 
                 # 更新观察历史缓冲区
-                obs_history[:-1] = obs_history[1:]  # 移动历史
-                obs_history[-1] = obs  # 添加新的观察
+                obs_history[1:] = obs_history[:-1]  # 向后移动，删除最后一个（最旧的）
+                obs_history[0] = obs               # 新数据放在最前面
                 
                 # 将历史观察展平为网络输入
                 obs_flat = obs_history.flatten()
