@@ -39,7 +39,7 @@ import numpy as np
 import torch
 
 
-def play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0):
+def play(args, x_vel=0.0, y_vel=0.0, yaw_vel=0.0):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
     env_cfg.env.num_envs = min(env_cfg.env.num_envs, 50)
@@ -56,16 +56,12 @@ def play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0):
     # env_cfg.terrain.mesh_type = 'plane'
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-    env.commands[:, 0] = x_vel
-    env.commands[:, 1] = y_vel
-    env.commands[:, 2] = yaw_vel
 
     obs = env.get_observations()
     # load policy
     train_cfg.runner.resume = True
     ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
     policy = ppo_runner.get_inference_policy(device=env.device)
-
 
     # export policy as a jit module (used to run it from C++)
     if EXPORT_POLICY:
@@ -114,7 +110,23 @@ def play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0):
                     'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
                     'base_vel_z': env.base_lin_vel[robot_index, 2].item(),
                     'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
-                    'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
+                    'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy(),
+                    'dof_pos_0': env.dof_pos[robot_index, 0].item(),
+                    'dof_pos_1': env.dof_pos[robot_index, 1].item(),
+                    'dof_pos_2': env.dof_pos[robot_index, 2].item(),
+                    'dof_vel_3': env.dof_vel[robot_index, 3].item(),
+                    'dof_pos_4': env.dof_pos[robot_index, 4].item(),
+                    'dof_pos_5': env.dof_pos[robot_index, 5].item(),
+                    'dof_pos_6': env.dof_pos[robot_index, 6].item(),
+                    'dof_vel_7': env.dof_vel[robot_index, 7].item(),
+                    'dof_pos_8': env.dof_pos[robot_index, 8].item(),
+                    'dof_pos_9': env.dof_pos[robot_index, 9].item(),
+                    'dof_pos_10': env.dof_pos[robot_index, 10].item(),
+                    'dof_vel_11': env.dof_vel[robot_index, 11].item(),
+                    'dof_pos_12': env.dof_pos[robot_index, 12].item(),
+                    'dof_pos_13': env.dof_pos[robot_index, 13].item(),
+                    'dof_pos_14': env.dof_pos[robot_index, 14].item(),
+                    'dof_vel_15': env.dof_vel[robot_index, 15].item(),
                 }
             )
         elif i==stop_state_log:
@@ -132,4 +144,4 @@ if __name__ == '__main__':
     RECORD_FRAMES = False
     MOVE_CAMERA = False
     args = get_args()
-    play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0)
+    play(args, x_vel=0.0, y_vel=0.0, yaw_vel=0.0)

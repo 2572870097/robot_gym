@@ -6,7 +6,7 @@ Stephen Brawner (brawner@gmail.com)
 <robot
   name="go2_description">
   <link
-    name="base">
+      name="base">
     <inertial>
       <origin
         xyz="0.021112 0 -0.005366"

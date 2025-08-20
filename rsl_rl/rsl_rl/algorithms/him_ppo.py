@@ -150,6 +150,7 @@ class HIMPPO:
                             param_group['lr'] = self.learning_rate
 
                 #Estimator Update
+                # 3️⃣ 🔥 Estimator独立更新（关键创新！）
                 estimation_loss, swap_loss = self.actor_critic.estimator.update(obs_batch, next_critic_obs_batch, lr=self.learning_rate)
 
                 # Surrogate loss

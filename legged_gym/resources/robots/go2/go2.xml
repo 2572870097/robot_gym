@@ -66,8 +66,8 @@
         mass="6.921"
         diaginertia="0.107027 0.0980771 0.0244531" />
       <freejoint />
-      <geom mesh="base_0" material="black" class="visual" />
-      <geom mesh="base_1" material="black" class="visual" />
+      <!-- <geom mesh="base_0" material="black" class="visual" />
+      <geom mesh="base_1" material="black" class="visual" /> -->
       <geom mesh="base_2" material="black" class="visual" />
       <geom mesh="base_3" material="white" class="visual" />
       <geom mesh="base_4" material="gray" class="visual" />

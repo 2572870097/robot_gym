@@ -1,0 +1,164 @@
+# SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+# list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its
+# contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# Copyright (c) 2021 ETH Zurich, Nikita Rudin
+
+from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
+
+class Yun1RoughCfg( LeggedRobotCfg ):
+
+    class terrain(LeggedRobotCfg.terrain):
+        mesh_type = 'trimesh'  # "heightfield" # none, plane, heightfield or trimesh
+    class init_state( LeggedRobotCfg.init_state ):
+        pos = [0.0, 0.0, 0.32] # x,y,z [m] - Reduced height for stability
+        default_joint_angles = { # = target angles [rad] when action = 0.0
+            'fl_hip_Joint': 0.0,   # [rad]
+            'rl_hip_Joint': 0.0,   # [rad]
+            'fr_hip_Joint': 0.0,  # [rad]
+            'rr_hip_Joint': 0.0,   # [rad]
+
+            'fl_thigh_Joint': 0.6,     # [rad] - 确保腿部正确伸展
+            'rl_thigh_Joint': 0.6,     # [rad]
+            'fr_thigh_Joint': 0.6,     # [rad]
+            'rr_thigh_Joint': 0.6,     # [rad]
+
+            'fl_calf_Joint': -1.2,   # [rad] - 确保foot接触地面
+            'rl_calf_Joint': -1.2,    # [rad]
+            'fr_calf_Joint': -1.2,  # [rad]
+            'rr_calf_Joint': -1.2,    # [rad]
+        }
+
+        start_joint_angles = { # = target angles [rad] when stand still
+            'fl_hip_Joint': 0.0,   # [rad]
+            'rl_hip_Joint': 0.0,   # [rad]
+            'fr_hip_Joint': 0.0,  # [rad]
+            'rr_hip_Joint': 0.0,   # [rad]
+
+            'fl_thigh_Joint': 0.6,     # [rad] - 确保腿部正确伸展
+            'rl_thigh_Joint': 0.6,     # [rad]
+            'fr_thigh_Joint': 0.6,     # [rad]
+            'rr_thigh_Joint': 0.6,     # [rad]
+
+            'fl_calf_Joint': -1.2,   # [rad] - 确保foot接触地面
+            'rl_calf_Joint': -1.2,    # [rad]
+            'fr_calf_Joint': -1.2,  # [rad]
+            'rr_calf_Joint': -1.2,    # [rad]
+        }
+
+    class control( LeggedRobotCfg.control ):
+        # PD Drive parameters:
+        control_type = 'P'
+        stiffness = {'Joint': 15.0}  # [N*m/rad] - Increased for better support
+        damping = {'Joint': 0.3}     # [N*m*s/rad] - Increased for stability
+        # action scale: target angle = actionScale * action + defaultAngle
+        action_scale = 0.25
+        # decimation: Number of control action updates @ sim DT per policy DT
+        decimation = 4
+        hip_reduction = 1
+
+    class commands( LeggedRobotCfg.commands ):
+            curriculum = True
+            max_curriculum = 1.5
+            num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
+            resampling_time = 10. # time before command are changed[s]
+            heading_command = True # if true: compute ang vel command from heading error
+            class ranges( LeggedRobotCfg.commands.ranges):
+                lin_vel_x = [-0.2, 0.2] # min max [m/s]
+                lin_vel_y = [-0.2, 0.2]   # min max [m/s]
+                ang_vel_yaw = [-3.14, 3.14]    # min max [rad/s]
+                heading = [-3.14, 3.14]
+
+    class asset( LeggedRobotCfg.asset ):
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/Yun1/urdf/yun1.urdf'
+        name = "yun1"
+        foot_name = "foot_Link"  # Updated to match URDF link names
+        penalize_contacts_on = ["thigh_Link", "hip_Link", "calf_Link", "base_link"]  # Fixed link names
+        terminate_after_contacts_on = ["base_link"]
+        privileged_contacts_on = ["base_link", "thigh_Link", "calf_Link","hip_Link"]  # 特权学习：训练时提供接触信息
+        self_collisions = 1 # 1 to disable, 0 to enable...bitwise filter
+        flip_visual_attachments = False
+  
+    class rewards( LeggedRobotCfg.rewards ):
+        class scales:
+            termination = -0.0
+            tracking_lin_vel = 1.2
+            tracking_ang_vel = 0.5
+            lin_vel_z = -2.0
+            ang_vel_xy = -0.05
+            orientation = -0.2
+            dof_acc = -2.5e-7
+            joint_power = -2e-6
+            base_height = -10.0
+            foot_clearance = -0.1
+            foot_slide = -0.0 #
+            foot_mirror = -0.0
+            action_rate = -0.01  
+            smoothness = -0.01
+            feet_air_time =  0.5
+            collision = -0.0
+            stumble = -0.0
+            stand_still = -0.2
+            torques = -0.0
+            dof_vel = -0.0
+            dof_pos_limits = -0.0
+            dof_vel_limits = -0.0
+            torque_limits = -0.0
+            four_feet_contact = 0.0
+            hip_movement = -0.4
+           
+            # IsaacLab风格的步态奖励
+            gait_pattern = 0.0  # 基于IsaacLab的同步/异步步态奖励
+            
+
+        only_positive_rewards = False # if true negative total rewards are clipped at zero (avoids early termination problems)
+        tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
+        soft_dof_pos_limit = 1. # percentage of urdf limits, values above this limit are penalized
+        soft_dof_vel_limit = 1.
+        soft_torque_limit = 1.
+        base_height_target = 0.23
+        max_contact_force = 100. 
+        clearance_height_target = -0.13  
+
+    class normalization(LeggedRobotCfg.normalization):
+        class obs_scales:
+            lin_vel = 2.0
+            ang_vel = 0.25
+            dof_pos = 1.0
+            dof_vel = 0.05
+            height_measurements = 5.0
+
+class Yun1RoughCfgPPO( LeggedRobotCfgPPO ):
+    class algorithm( LeggedRobotCfgPPO.algorithm ):
+        entropy_coef = 0.01
+    class runner( LeggedRobotCfgPPO.runner ):
+        num_steps_per_env = 24 # per iteration
+        max_iterations = 10000 # number of policy updates
+        run_name = ''
+        experiment_name = 'rough_yun1'
+
+  

@@ -108,7 +108,7 @@ class HIMOnPolicyRunner:
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs)
-                    obs, privileged_obs, rewards, dones, infos, termination_ids, termination_privileged_obs = self.env.step(actions)
+                    obs, privileged_obs, rewards, dones, infos, termination_ids, termination_privileged_obs = self.env.step(actions)  # 对应legged_robot中的step
 
                     critic_obs = privileged_obs if privileged_obs is not None else obs
                     obs, critic_obs, rewards, dones = obs.to(self.device), critic_obs.to(self.device), rewards.to(self.device), dones.to(self.device)
@@ -236,7 +236,13 @@ class HIMOnPolicyRunner:
             }, path)
 
     def load(self, path, load_optimizer=True):
-        loaded_dict = torch.load(path)
+        # loaded_dict = torch.load(path)
+         # Map model to available device to handle cross-device loading
+        if torch.cuda.is_available():
+            map_location = f'cuda:{torch.cuda.current_device()}'
+        else:
+            map_location = 'cpu'
+        loaded_dict = torch.load(path, map_location=map_location)
         self.alg.actor_critic.load_state_dict(loaded_dict['model_state_dict'])
         if load_optimizer:
             self.alg.optimizer.load_state_dict(loaded_dict['optimizer_state_dict'])

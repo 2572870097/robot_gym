@@ -39,8 +39,8 @@ from rsl_rl.modules.him_estimator import HIMEstimator
 class RunningMeanStd:
     # Dynamically calculate mean and std
     def __init__(self, shape, device):  # shape:the dimension of input data
-        self.n = 1e-4
-        self.uninitialized = True
+        self.n = 1e-4   # 初始计数（避免除零）
+        self.uninitialized = True 
         self.mean = torch.zeros(shape, device=device)
         self.var = torch.ones(shape, device=device)
 
@@ -54,7 +54,7 @@ class RunningMeanStd:
 
         self.mean = old_mean + delta * batch_count / tot_count
         m_a = self.var * count
-        m_b = x.var(dim=0) * batch_count
+        m_b = x.var(dim=0) * batch_count 
         M2 = m_a + m_b + torch.square(delta) * count * batch_count / tot_count
         self.var = M2 / tot_count
         self.n = tot_count
@@ -72,6 +72,10 @@ class Normalization:
         return x
 
 class HIMActorCritic(nn.Module):
+    # 三大核心组件：
+    # 1. Estimator: 混合内部模型 - 处理历史观测，输出速度预测和潜在表示
+    # 2. Actor: 策略网络 - 基于当前观测+速度+潜在表示输出动作
+    # 3. Critic: 价值网络 - 基于完整观测估计状态价值
     is_recurrent = False
     def __init__(self,  num_actor_obs,
                         num_critic_obs,
@@ -88,9 +92,9 @@ class HIMActorCritic(nn.Module):
 
         activation = get_activation(activation)
 
-        self.history_size = int(num_actor_obs/num_one_step_obs)
+        self.history_size = int(num_actor_obs/num_one_step_obs) # 历史观测步数
         self.num_actor_obs = num_actor_obs
-        self.num_actions = num_actions
+        self.num_actions = num_actions # 动作维度
         self.num_one_step_obs = num_one_step_obs
 
         mlp_input_dim_a = num_one_step_obs + 3 + 16

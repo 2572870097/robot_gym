@@ -9,6 +9,11 @@ from torch.distributions import Normal, Categorical
 
 
 class HIMEstimator(nn.Module):
+    # 核心方法：
+    # - get_latent(): 推理时获取潜在表示
+    # - forward(): 前向传播（推理模式）
+    # - encode(): 编码函数（训练模式）  
+    # - update(): 训练更新函数
     def __init__(self,
                  temporal_steps,
                  num_one_step_obs,
@@ -26,20 +31,20 @@ class HIMEstimator(nn.Module):
         super(HIMEstimator, self).__init__()
         activation = get_activation(activation)
 
-        self.temporal_steps = temporal_steps
-        self.num_one_step_obs = num_one_step_obs
-        self.num_latent = enc_hidden_dims[-1]
-        self.max_grad_norm = max_grad_norm
-        self.temperature = temperature
+        self.temporal_steps = temporal_steps # 时间步长
+        self.num_one_step_obs = num_one_step_obs # 单步观测维度
+        self.num_latent = enc_hidden_dims[-1] # 隐变量维度
+        self.max_grad_norm = max_grad_norm # 梯度裁剪
+        self.temperature = temperature  # 概率分布尖锐度​​
 
         # Encoder
-        enc_input_dim = self.temporal_steps * self.num_one_step_obs
-        enc_layers = []
+        enc_input_dim = self.temporal_steps * self.num_one_step_obs # 输入维度
+        enc_layers = [] # 编码器层
         for l in range(len(enc_hidden_dims) - 1):
             enc_layers += [nn.Linear(enc_input_dim, enc_hidden_dims[l]), activation]
             enc_input_dim = enc_hidden_dims[l]
         enc_layers += [nn.Linear(enc_input_dim, enc_hidden_dims[-1] + 3)]
-        self.encoder = nn.Sequential(*enc_layers)
+        self.encoder = nn.Sequential(*enc_layers)  # 编码器
 
         # Target
         tar_input_dim = self.num_one_step_obs
@@ -51,7 +56,7 @@ class HIMEstimator(nn.Module):
         self.target = nn.Sequential(*tar_layers)
 
         # Prototype
-        self.proto = nn.Embedding(num_prototype, enc_hidden_dims[-1])
+        self.proto = nn.Embedding(num_prototype, enc_hidden_dims[-1])  # 原型向量查找表
 
         # Optimizer
         self.learning_rate = learning_rate
@@ -82,9 +87,9 @@ class HIMEstimator(nn.Module):
         vel = next_critic_obs[:, self.num_one_step_obs:self.num_one_step_obs+3].detach()
         next_obs = next_critic_obs.detach()[:, 3:self.num_one_step_obs+3]
 
-        z_s = self.encoder(obs_history)
-        z_t = self.target(next_obs)
-        pred_vel, z_s = z_s[..., :3], z_s[..., 3:]
+        z_s = self.encoder(obs_history)   # 源路径：历史观测 → 潜在表示
+        z_t = self.target(next_obs)       # 目标路径：下一步观测 → 潜在表示  
+        pred_vel, z_s = z_s[..., :3], z_s[..., 3:] # 分离预测速度和潜在表示
 
         z_s = F.normalize(z_s, dim=-1, p=2)
         z_t = F.normalize(z_t, dim=-1, p=2)
@@ -94,8 +99,8 @@ class HIMEstimator(nn.Module):
             w = F.normalize(w, dim=-1, p=2)
             self.proto.weight.copy_(w)
 
-        score_s = z_s @ self.proto.weight.T
-        score_t = z_t @ self.proto.weight.T
+        score_s = z_s @ self.proto.weight.T # 源表示与原型相似度
+        score_t = z_t @ self.proto.weight.T # 目标表示与原型相似度
 
         with torch.no_grad():
             q_s = sinkhorn(score_s)
@@ -105,8 +110,8 @@ class HIMEstimator(nn.Module):
         log_p_t = F.log_softmax(score_t / self.temperature, dim=-1)
 
         swap_loss = -0.5 * (q_s * log_p_t + q_t * log_p_s).mean()
-        estimation_loss = F.mse_loss(pred_vel, vel)
-        losses = estimation_loss + swap_loss
+        estimation_loss = F.mse_loss(pred_vel, vel)  # 速度预测损失
+        losses = estimation_loss + swap_loss    # 总损失
 
         self.optimizer.zero_grad()
         losses.backward()
@@ -118,9 +123,9 @@ class HIMEstimator(nn.Module):
 
 @torch.no_grad()
 def sinkhorn(out, eps=0.05, iters=3):
-    Q = torch.exp(out / eps).T
-    K, B = Q.shape[0], Q.shape[1]
-    Q /= Q.sum()
+    Q = torch.exp(out / eps).T  # 温度缩放 + 转置
+    K, B = Q.shape[0], Q.shape[1]  # K=原型数量, B=批次大小
+    Q /= Q.sum()   # 归一化
 
     for it in range(iters):
         # normalize each row: total weight per prototype must be 1/K

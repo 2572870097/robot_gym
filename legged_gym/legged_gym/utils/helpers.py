@@ -226,13 +226,31 @@ class PolicyExporterHIM(torch.nn.Module):
     def __init__(self, actor_critic):
         super().__init__()
         self.actor = copy.deepcopy(actor_critic.actor)
+        # keep only the encoder for lightweight inference of velocity+latent
         self.estimator = copy.deepcopy(actor_critic.estimator.encoder)
+        # cache first Linear in_features of actor to infer required obs dim at runtime
+        first_in = None
+        for m in self.actor.modules():
+            if isinstance(m, torch.nn.Linear):
+                first_in = m.in_features
+                break
+        # fallback just in case (should not happen)
+        self._actor_first_in_features = int(first_in) if first_in is not None else 0
 
     def forward(self, obs_history):
-        parts = self.estimator(obs_history)[:, 0:19]
+        # estimator outputs [vel(3), latent(K)] where K depends on training config
+        parts = self.estimator(obs_history)
         vel, z = parts[..., :3], parts[..., 3:]
         z = F.normalize(z, dim=-1, p=2.0)
-        return self.actor(torch.cat((obs_history[:, 0:45], vel, z), dim=1))
+        # determine how many current-step obs the actor expects: D_in - (3 + K)
+        if self._actor_first_in_features > 0:
+            needed_obs = self._actor_first_in_features - (z.shape[-1] + 3)
+        else:
+            # conservative fallback: try to use as many as available minus latent+vel if actor size unknown
+            needed_obs = obs_history.shape[-1] - (z.shape[-1] + 3)
+        needed_obs = max(0, int(needed_obs))
+        actor_in = torch.cat((obs_history[:, :needed_obs], vel, z), dim=1)
+        return self.actor(actor_in)
 
     def export(self, path):
         os.makedirs(path, exist_ok=True)

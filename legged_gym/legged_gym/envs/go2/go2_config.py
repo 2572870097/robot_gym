@@ -36,6 +36,7 @@ class Go2RoughCfg( LeggedRobotCfg ):
         mesh_type = 'trimesh'  # "heightfield" # none, plane, heightfield or trimesh
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]
+        rot = [1.0, 0.0, 0.0, 0.0] # x,y,z,w [quat]
         default_joint_angles = { # = target angles [rad] when action = 0.0
             'FL_hip_joint': 0.1,   # [rad]
             'RL_hip_joint': 0.1,   # [rad]
@@ -69,6 +70,7 @@ class Go2RoughCfg( LeggedRobotCfg ):
             'FR_calf_joint': -1.8,  # [rad]
             'RR_calf_joint': -1.8,    # [rad]
         }
+        
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -79,7 +81,7 @@ class Go2RoughCfg( LeggedRobotCfg ):
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
-        hip_reduction = 1.0
+        hip_reduction = 1
 
     class commands( LeggedRobotCfg.commands ):
             curriculum = True
@@ -88,9 +90,9 @@ class Go2RoughCfg( LeggedRobotCfg ):
             resampling_time = 10. # time before command are changed[s]
             heading_command = True # if true: compute ang vel command from heading error
             class ranges( LeggedRobotCfg.commands.ranges):
-                lin_vel_x = [-0.5, 0.5] # min max [m/s]
-                lin_vel_y = [-0.5, 0.5]   # min max [m/s]
-                ang_vel_yaw = [-3.14, 3.14]    # min max [rad/s]
+                lin_vel_x = [-0.2, 0.2] # min max [m/s]
+                lin_vel_y = [-0.2, 0.2]   # min max [m/s]
+                ang_vel_yaw = [-0.2, 0.2]    # min max [rad/s]
                 heading = [-3.14, 3.14]
 
     class asset( LeggedRobotCfg.asset ):
@@ -111,27 +113,29 @@ class Go2RoughCfg( LeggedRobotCfg ):
             ang_vel_xy = -0.05
             orientation = -0.2
             dof_acc = -2.5e-7
-            joint_power = -2e-5
+            joint_power = -2e-6
             base_height = -10.0
-            foot_clearance = -0.0
-            foot_slide = -0.0
+            foot_clearance = -0.1
+            foot_slide = -0.0 #
             foot_mirror = -0.0
-            action_rate = -0.01
+            action_rate = -0.01  
             smoothness = -0.01
             feet_air_time =  0.5
             collision = -0.0
             stumble = -0.0
-            stand_still = -1.0
+            stand_still = -0.1
             torques = -0.0
             dof_vel = -0.0
             dof_pos_limits = -0.0
             dof_vel_limits = -0.0
             torque_limits = -0.0
-            four_feet_contact = 1.0
-            feet_clearance_during_swing = -0.
-            phase_contact = -0.0
-            trot_contact=-0.0
-            phase_foot_clearance = -0.0
+            four_feet_contact = 0.0
+            hip_movement = -0.5
+           # upward = 2.0    
+           
+            # IsaacLab风格的步态奖励
+            gait_pattern = 0.2  # 基于IsaacLab的同步/异步步态奖励
+            
 
         only_positive_rewards = False # if true negative total rewards are clipped at zero (avoids early termination problems)
         tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
@@ -142,6 +146,20 @@ class Go2RoughCfg( LeggedRobotCfg ):
         max_contact_force = 100. # forces above this value are penalized
         clearance_height_target = -0.2
 
+    # class domain_rand(LeggedRobotCfg.domain_rand):
+        
+        # # 基座位置随机化
+        # randomize_base_init_pos = True
+        # base_init_pos_range_x = [-0.2, 0.2]  # x方向随机偏移 ±20cm
+        # base_init_pos_range_y = [-0.2, 0.2]  # y方向随机偏移 ±20cm  
+        # base_init_pos_range_z = [0.35, 0.5]  # z高度在35-50cm范围内随机
+        
+        # # 基座姿态随机化（欧拉角，弧度）
+        # randomize_base_init_orientation = True
+        # base_init_roll_range = [-0.5, 0.5]   # 横滚角 ±11.5度
+        # base_init_pitch_range = [-0.5, 0.5]  # 俯仰角 ±11.5度
+        # base_init_yaw_range = [-0.5, 0.5]    # 偏航角 ±28.6度
+        
     class normalization(LeggedRobotCfg.normalization):
         class obs_scales:
             lin_vel = 2.0
