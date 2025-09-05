@@ -125,6 +125,24 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     load_path = os.path.join(load_run, model)
     return load_path
 
+def update_class_from_dict(obj, dict_, strict= False):
+    """ If strict, attributes that are not in dict_ will be removed from obj """
+    attr_names = [n for n in obj.__dict__.keys() if not (n.startswith("__") and n.endswith("__"))]
+    for attr_name in attr_names:
+        if not attr_name in dict_:
+            delattr(obj, attr_name)
+    for key, val in dict_.items():
+        attr = getattr(obj, key, None)
+        if attr is None or is_primitive_type(attr):
+            if isinstance(val, dict):
+                setattr(obj, key, copy.deepcopy(val))
+                update_class_from_dict(getattr(obj, key), val)
+            else:
+                setattr(obj, key, val)
+        else:
+            update_class_from_dict(attr, val)
+    return
+    
 def update_cfg_from_args(env_cfg, cfg_train, args):
     # seed
     if env_cfg is not None:
@@ -152,7 +170,7 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
 
     return env_cfg, cfg_train
 
-def get_args():
+def get_args(custom_args=[]):
     custom_parameters = [
         {"name": "--task", "type": str, "default": "aliengo", "help": "Resume training or start testing from a checkpoint. Overrides config file if provided."},
         {"name": "--resume", "action": "store_true", "default": False,  "help": "Resume training from a checkpoint"},
@@ -167,7 +185,7 @@ def get_args():
         {"name": "--num_envs", "type": int, "help": "Number of environments to create. Overrides config file if provided."},
         {"name": "--seed", "type": int, "help": "Random seed. Overrides config file if provided."},
         {"name": "--max_iterations", "type": int, "help": "Maximum number of training iterations. Overrides config file if provided."},
-    ]
+    ] + custom_args
     # parse arguments
     args = gymutil.parse_arguments(
         description="RL Policy",
@@ -258,5 +276,53 @@ class PolicyExporterHIM(torch.nn.Module):
         self.to('cpu')
         traced_script_module = torch.jit.script(self)
         traced_script_module.save(path)
+
+class PolicyExporterLSTM(torch.nn.Module):
+    def __init__(self, actor_critic):
+        super().__init__()
+        self.actor = copy.deepcopy(actor_critic.actor)
+        self.is_recurrent = actor_critic.is_recurrent
+        self.memory = copy.deepcopy(actor_critic.memory_a.rnn)
+        self.memory.cpu()
+        self.register_buffer(f'hidden_state', torch.zeros(self.memory.num_layers, 1, self.memory.hidden_size))
+        self.register_buffer(f'cell_state', torch.zeros(self.memory.num_layers, 1, self.memory.hidden_size))
+
+    def forward(self, x):
+        out, (h, c) = self.memory(x.unsqueeze(0), (self.hidden_state, self.cell_state))
+        self.hidden_state[:] = h
+        self.cell_state[:] = c
+        return self.actor(out.squeeze(0))
+
+    @torch.jit.export
+    def reset_memory(self):
+        self.hidden_state[:] = 0.
+        self.cell_state[:] = 0.
+
+    def export(self, path):
+        os.makedirs(path, exist_ok=True)
+        path = os.path.join(path, 'policy_lstm_1.pt')
+        self.to('cpu')
+        traced_script_module = torch.jit.script(self)
+        traced_script_module.save(path)
     
+def partial_checkpoint_load(pretrain_dict, model):
     
+    # 删除预训练权重中不存在的key
+    model_dict = model.state_dict()
+    # 更新模型权重
+    pretrain_dict = {k: v for k,v in pretrain_dict.items() if k in model_dict}
+    # 加载模型权重
+    model_dict.update(pretrain_dict)
+    model.load_state_dict(model_dict)
+
+    return model
+
+def hard_phase_schedualer(max_iters,phase1_end):
+    act_schedual = np.array([True]*max_iters)
+    imitation_schedual = np.array([True]*max_iters)
+    lag_schedual = np.array([False]*max_iters)
+
+    act_schedual[phase1_end:] = False
+    imitation_schedual[phase1_end:] = False
+    lag_schedual[phase1_end:] = True
+    return act_schedual,imitation_schedual,lag_schedual

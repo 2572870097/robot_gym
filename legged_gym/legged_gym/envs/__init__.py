@@ -30,7 +30,11 @@
 
 from legged_gym import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
 from .base.legged_robot import LeggedRobot
+from .go2.go2_constraint_robot import Go2ConstraintRobot
 from legged_gym.envs.go2.go2_config import Go2RoughCfg, Go2RoughCfgPPO
+from legged_gym.envs.go2.go2_constraint_him import Go2ConstraintHimRoughCfg, Go2ConstraintHimRoughCfgPPO
+from legged_gym.envs.go2.go2_backflip_config import Go2BackflipCfg, Go2BackflipCfgPPO
+from legged_gym.envs.go2.go2_backflip_robot import Go2Backflip
 
 
 
@@ -38,11 +42,20 @@ from legged_gym.envs.yun1.yun1_config import Yun1RoughCfg, Yun1RoughCfgPPO
 
 from legged_gym.envs.yun1w.yun1w_robot import Yun1w
 from legged_gym.envs.yun1w.yun1w_config import Yun1WRoughCfg, Yun1WRoughCfgPPO
-
+from legged_gym.envs.yun1w.yun1w_rough_config import Yun1WRoughCfg1, Yun1WRoughCfgPPO1
+from legged_gym.envs.yun1w.yun1w_bipe_config import Yun1WBipeCfg, Yun1WBipeCfgPPO
+from legged_gym.envs.yun1w.yun1w_trot_config import Yun1WTrotCfg, Yun1WTrotCfgPPO
+from legged_gym.envs.yun1w.yun1w_jump_config import Yun1WJumpCfg, Yun1WJumpCfgPPO
 import os
 
 from legged_gym.utils.task_registry import task_registry
 
 task_registry.register( "go2", LeggedRobot, Go2RoughCfg(), Go2RoughCfgPPO() )
+task_registry.register( "go2_np3o", Go2ConstraintRobot, Go2ConstraintHimRoughCfg(), Go2ConstraintHimRoughCfgPPO() )
+task_registry.register( "go2_backflip", Go2Backflip, Go2BackflipCfg(), Go2BackflipCfgPPO() )
 task_registry.register( "yun1", LeggedRobot, Yun1RoughCfg(), Yun1RoughCfgPPO() )
 task_registry.register( "yun1w", Yun1w, Yun1WRoughCfg(), Yun1WRoughCfgPPO() )
+task_registry.register( "yun1w_rough", Yun1w, Yun1WRoughCfg1(), Yun1WRoughCfgPPO1() )
+task_registry.register( "yun1w_bipe", Yun1w, Yun1WBipeCfg(), Yun1WBipeCfgPPO() )
+task_registry.register( "yun1w_trot", Yun1w, Yun1WTrotCfg(), Yun1WTrotCfgPPO() )
+task_registry.register( "yun1w_jump", Yun1w, Yun1WJumpCfg(), Yun1WJumpCfgPPO() )

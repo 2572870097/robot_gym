@@ -28,7 +28,7 @@
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
-from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
+from legged_gym.envs.go2.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 class Go2ConstraintHimRoughCfg( LeggedRobotCfg ):
     class env(LeggedRobotCfg.env):
@@ -137,7 +137,7 @@ class Go2ConstraintHimRoughCfg( LeggedRobotCfg ):
     #         heading = [-3.14, 3.14]
 
     class asset( LeggedRobotCfg.asset ):
-        file = '{ROOT_DIR}/resources/go2/urdf/go2.urdf'
+        file = '/home/s00055/HIMLoco/legged_gym/resources/robots/go2/urdf/go2.urdf'
         foot_name = "foot"
         name = "go2"
         penalize_contacts_on = ["thigh", "calf"]

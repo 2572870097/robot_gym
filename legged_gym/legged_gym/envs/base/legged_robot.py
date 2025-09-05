@@ -575,50 +575,6 @@ class LeggedRobot(BaseTask):
             self.root_states[env_ids] = self.base_init_state
             self.root_states[env_ids, :3] += self.env_origins[env_ids]
             
-        # # 增强的位置随机化
-        # if hasattr(self.cfg.domain_rand, 'randomize_base_init_pos') and self.cfg.domain_rand.randomize_base_init_pos:
-        #     # 基座位置随机化
-        #     if hasattr(self.cfg.domain_rand, 'base_init_pos_range_x'):
-        #         self.root_states[env_ids, 0] += torch_rand_float(
-        #             self.cfg.domain_rand.base_init_pos_range_x[0], 
-        #             self.cfg.domain_rand.base_init_pos_range_x[1], 
-        #             (len(env_ids), 1), device=self.device).squeeze(1)
-        #     if hasattr(self.cfg.domain_rand, 'base_init_pos_range_y'):
-        #         self.root_states[env_ids, 1] += torch_rand_float(
-        #             self.cfg.domain_rand.base_init_pos_range_y[0], 
-        #             self.cfg.domain_rand.base_init_pos_range_y[1], 
-        #             (len(env_ids), 1), device=self.device).squeeze(1)
-        #     if hasattr(self.cfg.domain_rand, 'base_init_pos_range_z'):
-        #         self.root_states[env_ids, 2] = torch_rand_float(
-        #             self.cfg.domain_rand.base_init_pos_range_z[0], 
-        #             self.cfg.domain_rand.base_init_pos_range_z[1], 
-        #             (len(env_ids), 1), device=self.device).squeeze(1)
-        
-        # # 增强的姿态随机化
-        # if hasattr(self.cfg.domain_rand, 'randomize_base_init_orientation') and self.cfg.domain_rand.randomize_base_init_orientation:
-        #     # 生成随机欧拉角
-        #     roll = torch_rand_float(self.cfg.domain_rand.base_init_roll_range[0], 
-        #                           self.cfg.domain_rand.base_init_roll_range[1], 
-        #                           (len(env_ids), 1), device=self.device).squeeze(1)
-        #     pitch = torch_rand_float(self.cfg.domain_rand.base_init_pitch_range[0], 
-        #                            self.cfg.domain_rand.base_init_pitch_range[1], 
-        #                            (len(env_ids), 1), device=self.device).squeeze(1)
-        #     yaw = torch_rand_float(self.cfg.domain_rand.base_init_yaw_range[0], 
-        #                          self.cfg.domain_rand.base_init_yaw_range[1], 
-        #                          (len(env_ids), 1), device=self.device).squeeze(1)
-            
-            # # 转换为四元数
-            # cy = torch.cos(yaw * 0.5)
-            # sy = torch.sin(yaw * 0.5)
-            # cp = torch.cos(pitch * 0.5)
-            # sp = torch.sin(pitch * 0.5)
-            # cr = torch.cos(roll * 0.5)
-            # sr = torch.sin(roll * 0.5)
-            
-            # self.root_states[env_ids, 3] = cr * cp * cy + sr * sp * sy  # qw
-            # self.root_states[env_ids, 4] = sr * cp * cy - cr * sp * sy  # qx
-            # self.root_states[env_ids, 5] = cr * sp * cy + sr * cp * sy  # qy
-            # self.root_states[env_ids, 6] = cr * cp * sy - sr * sp * cy  # qz
             
         env_ids_int32 = env_ids.to(dtype=torch.int32)
         self.gym.set_actor_root_state_tensor_indexed(self.sim,
@@ -1580,3 +1536,23 @@ class LeggedRobot(BaseTask):
     
     def _reward_upward(self):
         return 1 - self.projected_gravity[:,2]
+
+
+    def _reward_hip_pos(self):
+        # 惩罚 髋关节hip（0,3,6,9）与默认位置的偏差
+        return torch.sum(torch.abs(self.dof_pos[:, [0,3,6,9]] - self.default_dof_pos[:, [0,3,6,9]]), dim=1)
+    def _reward_hip_pos_up(self):
+        return (torch.sum(torch.abs(self.dof_pos[:, [0, 3, 6, 9]] - self.default_dof_pos[:, [0, 3, 6, 9]]), dim=1)
+                * torch.clamp(-self.projected_gravity[:, 2], 0, 1))
+
+    def _reward_thigh_pose(self):
+        return torch.sum(torch.abs(self.dof_pos[:, [1,4,7,10]] - self.default_dof_pos[:, [1,4,7,10]]), dim=1)
+    def _reward_thigh_pose_up(self):
+        return (torch.sum(torch.abs(self.dof_pos[:, [1,4,7,10]] - self.default_dof_pos[:, [1,4,7,10]]), dim=1)
+                * torch.clamp(-self.projected_gravity[:, 2], 0, 1))
+
+    def _reward_calf_pose(self):
+        return torch.sum(torch.abs(self.dof_pos[:, [2,5,8,11]] - self.default_dof_pos[:, [2,5,8,11]]), dim=1)
+    def _reward_calf_pose_up(self):
+        return (torch.sum(torch.abs(self.dof_pos[:, [2,5,8,11]] - self.default_dof_pos[:, [2,5,8,11]]), dim=1)
+                * torch.clamp(-self.projected_gravity[:, 2], 0, 1))

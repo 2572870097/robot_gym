@@ -96,25 +96,25 @@ class Yun1WRoughCfg( LeggedRobotCfg ):
         # PD Drive parameters:
         control_type = 'P'
         stiffness = {'hip_Joint': 15.,'thigh_Joint': 15.,'calf_Joint': 15.,"wheel_Joint":0}  # [N*m/rad]
-        damping = {'hip_Joint': 0.3,'thigh_Joint': 0.3,'calf_Joint': 0.3,"wheel_Joint":0.3}     # [N*m*s/rad]
+        damping = {'hip_Joint': 0.3,'thigh_Joint': 0.3,'calf_Joint': 0.3,"wheel_Joint":0.12}     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
 
         vel_scale = 10 # 轮子的速度缩放超参数
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
-        wheel_speed = 1
+        # wheel_speed = 1
         
 
     class commands( LeggedRobotCfg.commands ):
             curriculum = True
-            max_curriculum = 1.0
+            max_curriculum = 1.5
             num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
             resampling_time = 10. # time before command are changed[s]
             heading_command = False # if true: compute ang vel command from heading error
             class ranges( LeggedRobotCfg.commands.ranges):
-                lin_vel_x = [-1.0, 1.0]  # min max [m/s] x轴方向线速度
-                lin_vel_y = [-1.0, 1.0]  # min max [m/s] y轴方向线速度
+                lin_vel_x = [-0.0, 0.0]  # min max [m/s] x轴方向线速度
+                lin_vel_y = [-0.0, 0.0]  # min max [m/s] y轴方向线速度
                 ang_vel_yaw = [-1, 1]  # min max [rad/s] 角速度
                 heading = [-3.14, 3.14]  # 航向 实际上没有使用这个维度
 
@@ -131,31 +131,44 @@ class Yun1WRoughCfg( LeggedRobotCfg ):
   
     class rewards( LeggedRobotCfg.rewards ):
         class scales:
+            # general
             termination = -0.8
+            # velocity-tracking
             tracking_lin_vel = 3.0
             tracking_ang_vel = 1.5
-            lin_vel_z = -1.0
+            # root
+            lin_vel_z = -2
             ang_vel_xy = -0.05
             orientation = -2
+            base_height = -10
+            # joint
+            torques = -0.0002
+            dof_vel = -1e-7
             dof_acc = -1e-7
-            joint_power = 0
-            base_height = -10.0
-            action_rate = -0.03
-            smoothness = -0.03
+            joint_power = -2e-5
+            dof_pos_limits = -0.9
+            stand_still = -0.5
+            hip_pos = -0.2  # 髋关节hip（0,3,6,9）位置与默认位置的偏差 惩罚
+            thigh_pose = -0.1
+            calf_pose = -0.1
+            # action
+            action_rate = -0.01
+            hip_action_l2 = -0.1
+            smoothness = -0.01
+            # contact
             collision = -0.1
             stumble = -0.1
-            stand_still = -2
-            torques = -0.0001
-            dof_vel = -1e-7
-            dof_pos_limits = -0.9
-            hip_action_l2 = -0.1
+            no_wheel_spin_in_air = -0.001
+            #yaw_feet_air_time = 1.0
+            no_feet_air_time = -1.2
+            has_contact = 0.5
 
         only_positive_rewards = True # if true negative total rewards are clipped at zero (avoids early termination problems)
-        tracking_sigma = 0.4 # tracking reward = exp(-error^2/sigma)
+        tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
         soft_dof_pos_limit = 0.9 # percentage of urdf limits, values above this limit are penalized
         soft_dof_vel_limit = 0.9
         soft_torque_limit = 1.
-        base_height_target = 0.26
+        base_height_target = 0.27
         max_contact_force = 100.
 
     class normalization(LeggedRobotCfg.normalization):
@@ -172,5 +185,6 @@ class Yun1WRoughCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         num_steps_per_env = 24 # per iteration
         max_iterations = 50000 # number of policy updates
+        runner_class_name = 'HIMOnPolicyRunner'
         run_name = ''
         experiment_name = 'rough_yun1w'

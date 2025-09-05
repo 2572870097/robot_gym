@@ -261,6 +261,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         max_grad_norm = 1.
 
     class runner:
+        runner_class_name = 'HIMOnPolicyRunner'
         policy_class_name = 'HIMActorCritic'
         algorithm_class_name = 'HIMPPO'
         num_steps_per_env = 100 # per iteration

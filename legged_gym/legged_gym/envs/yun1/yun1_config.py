@@ -33,7 +33,7 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 class Yun1RoughCfg( LeggedRobotCfg ):
 
     class terrain(LeggedRobotCfg.terrain):
-        mesh_type = 'trimesh'  # "heightfield" # none, plane, heightfield or trimesh
+        mesh_type = 'plane'  # "heightfield" # none, plane, heightfield or trimesh
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.32] # x,y,z [m] - Reduced height for stability
         default_joint_angles = { # = target angles [rad] when action = 0.0
@@ -43,14 +43,14 @@ class Yun1RoughCfg( LeggedRobotCfg ):
             'rr_hip_Joint': 0.0,   # [rad]
 
             'fl_thigh_Joint': 0.6,     # [rad] - 确保腿部正确伸展
-            'rl_thigh_Joint': 0.6,     # [rad]
+            'rl_thigh_Joint': -0.6,     # [rad]
             'fr_thigh_Joint': 0.6,     # [rad]
-            'rr_thigh_Joint': 0.6,     # [rad]
+            'rr_thigh_Joint': -0.6,     # [rad]
 
             'fl_calf_Joint': -1.2,   # [rad] - 确保foot接触地面
-            'rl_calf_Joint': -1.2,    # [rad]
+            'rl_calf_Joint': 1.2,    # [rad]
             'fr_calf_Joint': -1.2,  # [rad]
-            'rr_calf_Joint': -1.2,    # [rad]
+            'rr_calf_Joint': 1.2,    # [rad]
         }
 
         start_joint_angles = { # = target angles [rad] when stand still
@@ -60,14 +60,14 @@ class Yun1RoughCfg( LeggedRobotCfg ):
             'rr_hip_Joint': 0.0,   # [rad]
 
             'fl_thigh_Joint': 0.6,     # [rad] - 确保腿部正确伸展
-            'rl_thigh_Joint': 0.6,     # [rad]
+            'rl_thigh_Joint': -0.6,     # [rad]
             'fr_thigh_Joint': 0.6,     # [rad]
-            'rr_thigh_Joint': 0.6,     # [rad]
+            'rr_thigh_Joint': -0.6,     # [rad]
 
             'fl_calf_Joint': -1.2,   # [rad] - 确保foot接触地面
-            'rl_calf_Joint': -1.2,    # [rad]
+            'rl_calf_Joint': 1.2,    # [rad]
             'fr_calf_Joint': -1.2,  # [rad]
-            'rr_calf_Joint': -1.2,    # [rad]
+            'rr_calf_Joint': 1.2,    # [rad]
         }
 
     class control( LeggedRobotCfg.control ):
@@ -106,18 +106,18 @@ class Yun1RoughCfg( LeggedRobotCfg ):
     class rewards( LeggedRobotCfg.rewards ):
         class scales:
             termination = -0.0
-            tracking_lin_vel = 1.2
-            tracking_ang_vel = 0.5
+            tracking_lin_vel = 1.5
+            tracking_ang_vel = 1.5
             lin_vel_z = -2.0
             ang_vel_xy = -0.05
-            orientation = -0.2
+            orientation = -2.0
             dof_acc = -2.5e-7
             joint_power = -2e-6
             base_height = -10.0
             foot_clearance = -0.1
             foot_slide = -0.0 #
             foot_mirror = -0.0
-            action_rate = -0.01  
+            action_rate = -0.02
             smoothness = -0.01
             feet_air_time =  0.5
             collision = -0.0
@@ -129,10 +129,12 @@ class Yun1RoughCfg( LeggedRobotCfg ):
             dof_vel_limits = -0.0
             torque_limits = -0.0
             four_feet_contact = 0.0
-            hip_movement = -0.4
-           
+            # hip_movement = -0.4
+            hip_pos = -0.2  # 髋关节hip（0,3,6,9）位置与默认位置的偏差 惩罚
+            thigh_pose = -0.05
+            calf_pose = -0.05
             # IsaacLab风格的步态奖励
-            gait_pattern = 0.0  # 基于IsaacLab的同步/异步步态奖励
+            gait_pattern = 1.0  # 基于IsaacLab的同步/异步步态奖励
             
 
         only_positive_rewards = False # if true negative total rewards are clipped at zero (avoids early termination problems)
@@ -142,7 +144,7 @@ class Yun1RoughCfg( LeggedRobotCfg ):
         soft_torque_limit = 1.
         base_height_target = 0.23
         max_contact_force = 100. 
-        clearance_height_target = -0.13  
+        clearance_height_target = -0.15 
 
     class normalization(LeggedRobotCfg.normalization):
         class obs_scales:
@@ -156,6 +158,7 @@ class Yun1RoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
+        runner_class_name = 'HIMOnPolicyRunner'
         num_steps_per_env = 24 # per iteration
         max_iterations = 10000 # number of policy updates
         run_name = ''

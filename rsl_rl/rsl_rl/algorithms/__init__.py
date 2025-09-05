@@ -30,3 +30,4 @@
 
 from .ppo import PPO
 from .him_ppo import HIMPPO
+from .np3o import NP3O

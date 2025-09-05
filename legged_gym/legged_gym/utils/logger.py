@@ -124,69 +124,69 @@ class Logger:
         # a.set(xlabel='time [s]', ylabel='Joint Torque [Nm]', title='Torque')
         # a.legend()
         # plot joint angles
-        a = axs[1, 0]
-        if log["dof_pos_0"]: a.plot(time, log["dof_pos_0"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 0 Position')
-        a.legend()
-        a = axs[1, 1]
-        if log["dof_pos_1"]: a.plot(time, log["dof_pos_1"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 1 Position')
-        a.legend()
-        a = axs[1, 2]
-        if log["dof_pos_2"]: a.plot(time, log["dof_pos_2"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 2 Position')
-        a.legend()
-        a = axs[2, 0]
-        if log["dof_vel_3"]: a.plot(time, log["dof_vel_3"], label='measured')
-        a.set(xlabel='time [s]', ylabel='vel [rad]', title='joint 3 vel')
-        a.legend()
-        a = axs[2, 1]
-        if log["dof_pos_4"]: a.plot(time, log["dof_pos_4"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 4 Position')
-        a.legend()
-        a = axs[2, 2]
-        if log["dof_pos_5"]: a.plot(time, log["dof_pos_5"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 5 Position')
-        a.legend()
-        a = axs[3, 0]
-        if log["dof_pos_6"]: a.plot(time, log["dof_pos_6"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 6 Position')
-        a.legend()
-        a = axs[3, 1]
-        if log["dof_vel_7"]: a.plot(time, log["dof_vel_7"], label='measured')
-        a.set(xlabel='time [s]', ylabel='vel [rad]', title='joint 7 vel')
-        a.legend()
-        a = axs[3, 2]
-        if log["dof_pos_8"]: a.plot(time, log["dof_pos_8"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 8 Position')
-        a.legend()
-        a = axs[4, 0]
-        if log["dof_pos_9"]: a.plot(time, log["dof_pos_9"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 9 Position')
-        a.legend()
-        a = axs[4, 1]
-        if log["dof_pos_10"]: a.plot(time, log["dof_pos_10"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 10 Position')
-        a.legend()
-        a = axs[4, 2]
-        if log["dof_vel_11"]: a.plot(time, log["dof_vel_11"], label='measured')
-        a.set(xlabel='time [s]', ylabel='vel [rad]', title='joint 11 vel')
-        a.legend()
-        a = axs[5, 0]
-        if log["dof_pos_12"]: a.plot(time, log["dof_pos_12"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 12 Position')
-        a.legend()
-        a = axs[5, 1]
-        if log["dof_pos_13"]: a.plot(time, log["dof_pos_13"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 13 Position')
-        a.legend()
-        a = axs[5, 2]
-        if log["dof_pos_14"]: a.plot(time, log["dof_pos_14"], label='measured')
-        a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 14 Position')
-        a.legend()
-        a = axs[6, 0]
-        if log["dof_vel_15"]: a.plot(time, log["dof_vel_15"], label='measured')
-        a.set(xlabel='time [s]', ylabel='vel [rad]', title='joint 15 vel')
+        # a = axs[1, 0]
+        # if log["dof_pos_0"]: a.plot(time, log["dof_pos_0"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 0 Position')
+        # a.legend()
+        # a = axs[1, 1]
+        # if log["dof_pos_1"]: a.plot(time, log["dof_pos_1"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 1 Position')
+        # a.legend()
+        # a = axs[1, 2]
+        # if log["dof_pos_2"]: a.plot(time, log["dof_pos_2"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 2 Position')
+        # a.legend()
+        # a = axs[2, 0]
+        # if log["dof_vel_3"]: a.plot(time, log["dof_vel_3"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='vel [rad]', title='joint 3 vel')
+        # a.legend()
+        # a = axs[2, 1]
+        # if log["dof_pos_4"]: a.plot(time, log["dof_pos_4"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 4 Position')
+        # a.legend()
+        # a = axs[2, 2]
+        # if log["dof_pos_5"]: a.plot(time, log["dof_pos_5"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 5 Position')
+        # a.legend()
+        # a = axs[3, 0]
+        # if log["dof_pos_6"]: a.plot(time, log["dof_pos_6"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 6 Position')
+        # a.legend()
+        # a = axs[3, 1]
+        # if log["dof_vel_7"]: a.plot(time, log["dof_vel_7"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='vel [rad]', title='joint 7 vel')
+        # a.legend()
+        # a = axs[3, 2]
+        # if log["dof_pos_8"]: a.plot(time, log["dof_pos_8"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 8 Position')
+        # a.legend()
+        # a = axs[4, 0]
+        # if log["dof_pos_9"]: a.plot(time, log["dof_pos_9"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 9 Position')
+        # a.legend()
+        # a = axs[4, 1]
+        # if log["dof_pos_10"]: a.plot(time, log["dof_pos_10"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 10 Position')
+        # a.legend()
+        # a = axs[4, 2]
+        # if log["dof_vel_11"]: a.plot(time, log["dof_vel_11"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='vel [rad]', title='joint 11 vel')
+        # a.legend()
+        # a = axs[5, 0]
+        # if log["dof_pos_12"]: a.plot(time, log["dof_pos_12"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 12 Position')
+        # a.legend()
+        # a = axs[5, 1]
+        # if log["dof_pos_13"]: a.plot(time, log["dof_pos_13"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 13 Position')
+        # a.legend()
+        # a = axs[5, 2]
+        # if log["dof_pos_14"]: a.plot(time, log["dof_pos_14"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='Position [rad]', title='joint 14 Position')
+        # a.legend()
+        # a = axs[6, 0]
+        # if log["dof_vel_15"]: a.plot(time, log["dof_vel_15"], label='measured')
+        # a.set(xlabel='time [s]', ylabel='vel [rad]', title='joint 15 vel')
         a.legend()
         plt.show()
 

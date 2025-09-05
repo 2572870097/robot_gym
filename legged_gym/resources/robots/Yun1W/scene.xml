@@ -1,0 +1,84 @@
+<mujoco model="yun1w scene">
+  <include file="yun1w.xml"/>
+
+  <statistic center="1.0 0.7 1.0" extent="0.8"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0.9 0.9 0.9"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="-140" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="flat" rgb1="0 0 0" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    
+    <!-- 斜坡材质 -->
+    <texture type="2d" name="slope_texture" builtin="checker" mark="cross" rgb1="0.3 0.4 0.2" rgb2="0.2 0.3 0.1" markrgb="0.9 0.9 0.7" width="100" height="100"/>
+    <material name="slope_material" texture="slope_texture" texuniform="true" texrepeat="3 3" reflectance="0.3"/>
+  </asset>
+
+  <worldbody>
+    <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- <geom pos="1.2 0 0.04" type="box"  size="0.1 2 0.04" quat="1.0 0 0 0"/>
+    <geom pos="1.6 0 0.04" type="box"  size="0.1 2 0.04" quat="1.0 0 0 0"/> -->
+
+    <geom pos="2.3 0 0.02" type="box"  size="0.2 2 0.10" quat="1.0 0 0 0"/>
+    <geom pos="2.6 0 0.02" type="box"  size="0.22 2 0.2" quat="1.0 0 0 0"/>
+    <geom pos="2.8 0 0.02" type="box"  size="0.23 2 0.3" quat="1.0 0 0 0"/>
+    <geom pos="3 0 0.02" type="box"  size="0.24 2 0.4" quat="1.0 0 0 0"/>
+    <geom pos="3.2 0 0.02" type="box"  size="0.25 2 0.5" quat="1.0 0 0 0"/>
+    <geom pos="3.7 0 0.02" type="box"  size="0.56 2 0.6" quat="1.0 0 0 0"/>
+
+    <!-- 新增：不同角度的斜坡 -->
+    
+    <!-- 5度斜坡 (坡度 = tan(5°) ≈ 0.087) -->
+    <!-- 长度2m，高度0.175m，中心位置调整 -->
+    <geom name="slope_5deg" pos="5.0 0 0.0875" type="box" size="1.0 1.5 0.05" 
+          quat="0.9997 0.0436 0 0" material="slope_material"/>
+    <body name="slope_5deg_marker" pos="5.0 1.8 0.2">
+      <geom type="sphere" size="0.05" rgba="0.2 0.8 0.2 0.8"/>
+    </body>
+    
+    <!-- 15度斜坡 (坡度 = tan(15°) ≈ 0.268) -->
+    <!-- 长度2m，高度0.536m，中心位置调整 -->
+    <geom name="slope_15deg" pos="7.5 0 0.268" type="box" size="1.0 1.5 0.05" 
+          quat="0.9659 0.1305 0 0" material="slope_material"/>
+    <body name="slope_15deg_marker" pos="7.5 1.8 0.6">
+      <geom type="sphere" size="0.05" rgba="0.8 0.8 0.2 0.8"/>
+    </body>
+    
+    <!-- 25度斜坡 (坡度 = tan(25°) ≈ 0.466) -->
+    <!-- 长度2m，高度0.933m，中心位置调整 -->
+    <geom name="slope_25deg" pos="10.0 0 0.466" type="box" size="1.0 1.5 0.05" 
+          quat="0.9063 0.2225 0 0" material="slope_material"/>
+    <body name="slope_25deg_marker" pos="10.0 1.8 1.0">
+      <geom type="sphere" size="0.05" rgba="0.8 0.4 0.2 0.8"/>
+    </body>
+    
+    <!-- 35度斜坡 (坡度 = tan(35°) ≈ 0.700) -->
+    <!-- 长度2m，高度1.4m，中心位置调整 -->
+    <geom name="slope_35deg" pos="12.5 0 0.700" type="box" size="1.0 1.5 0.05" 
+          quat="0.8192 0.3420 0 0" material="slope_material"/>
+    <body name="slope_35deg_marker" pos="12.5 1.8 1.5">
+      <geom type="sphere" size="0.05" rgba="0.8 0.2 0.2 0.8"/>
+    </body>
+
+    <!-- 斜坡说明标签 -->
+    <body name="slope_info" pos="8.0 -2.5 0.5">
+      <geom type="box" size="0.1 0.1 0.1" rgba="0.9 0.9 0.9 0.1"/>
+    </body>
+
+    <!-- 原有的注释掉的更高阶梯 -->
+    <!-- <geom pos="2.3 0 0.02" type="box"  size="0.2 2 0.15" quat="1.0 0 0 0"/>
+    <geom pos="2.6 0 0.02" type="box"  size="0.22 2 0.3" quat="1.0 0 0 0"/>
+    <geom pos="2.8 0 0.02" type="box"  size="0.23 2 0.45" quat="1.0 0 0 0"/>
+    <geom pos="3 0 0.02" type="box"  size="0.24 2 0.6" quat="1.0 0 0 0"/>
+    <geom pos="3.2 0 0.02" type="box"  size="0.25 2 0.75" quat="1.0 0 0 0"/>
+    <geom pos="3.7 0 0.02" type="box"  size="0.56 2 0.9" quat="1.0 0 0 0"/> -->
+
+  </worldbody>
+</mujoco>

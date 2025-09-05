@@ -34,13 +34,34 @@ import os
 import isaacgym
 from legged_gym.envs import *
 from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Logger
-
+from legged_gym.utils.helpers import update_class_from_dict
+from collections import OrderedDict
 import numpy as np
 import torch
+import json
 
+def get_load_run_name(train_cfg):
+    """Helper function to get the actual load run directory name"""
+    load_run_str = str(train_cfg.runner.load_run) if isinstance(train_cfg.runner.load_run, int) else train_cfg.runner.load_run
+    if load_run_str == "-1":
+        log_root = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name)
+        from legged_gym.utils.helpers import get_load_path
+        actual_load_path = get_load_path(log_root, load_run=-1, checkpoint=-1)
+        load_run_dir = os.path.dirname(actual_load_path)
+        return os.path.basename(load_run_dir)
+    else:
+        return load_run_str
 
 def play(args, x_vel=0.0, y_vel=0.0, yaw_vel=0.0):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
+    # if args.load_cfg:
+    # args.load_run = get_load_run_name(train_cfg)
+    # json_path = os.path.join(LEGGED_GYM_ROOT_DIR, "/logs", train_cfg.runner.experiment_name, args.load_run, "config.json")
+    # print(f"[INFO] loading config from {json_path}")
+    # with open(json_path, "r") as f:
+    #     d = json.load(f, object_pairs_hook=OrderedDict)
+    #     update_class_from_dict(env_cfg, d, strict=True)
+    #     update_class_from_dict(train_cfg, d, strict=True)
     # override some parameters for testing
     env_cfg.env.num_envs = min(env_cfg.env.num_envs, 50)
     env_cfg.terrain.num_rows = 10
@@ -53,6 +74,8 @@ def play(args, x_vel=0.0, y_vel=0.0, yaw_vel=0.0):
     env_cfg.domain_rand.disturbance = False
     env_cfg.domain_rand.randomize_payload_mass = False
     env_cfg.commands.heading_command = False
+    env_cfg.domain_rand.push_towards_goal = False
+    env_cfg.env.test = True
     # env_cfg.terrain.mesh_type = 'plane'
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -111,22 +134,22 @@ def play(args, x_vel=0.0, y_vel=0.0, yaw_vel=0.0):
                     'base_vel_z': env.base_lin_vel[robot_index, 2].item(),
                     'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
                     'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy(),
-                    'dof_pos_0': env.dof_pos[robot_index, 0].item(),
-                    'dof_pos_1': env.dof_pos[robot_index, 1].item(),
-                    'dof_pos_2': env.dof_pos[robot_index, 2].item(),
-                    'dof_vel_3': env.dof_vel[robot_index, 3].item(),
-                    'dof_pos_4': env.dof_pos[robot_index, 4].item(),
-                    'dof_pos_5': env.dof_pos[robot_index, 5].item(),
-                    'dof_pos_6': env.dof_pos[robot_index, 6].item(),
-                    'dof_vel_7': env.dof_vel[robot_index, 7].item(),
-                    'dof_pos_8': env.dof_pos[robot_index, 8].item(),
-                    'dof_pos_9': env.dof_pos[robot_index, 9].item(),
-                    'dof_pos_10': env.dof_pos[robot_index, 10].item(),
-                    'dof_vel_11': env.dof_vel[robot_index, 11].item(),
-                    'dof_pos_12': env.dof_pos[robot_index, 12].item(),
-                    'dof_pos_13': env.dof_pos[robot_index, 13].item(),
-                    'dof_pos_14': env.dof_pos[robot_index, 14].item(),
-                    'dof_vel_15': env.dof_vel[robot_index, 15].item(),
+                    # 'dof_pos_0': env.dof_pos[robot_index, 0].item(),
+                    # 'dof_pos_1': env.dof_pos[robot_index, 1].item(),
+                    # 'dof_pos_2': env.dof_pos[robot_index, 2].item(),
+                    # 'dof_vel_3': env.dof_vel[robot_index, 3].item(),
+                    # 'dof_pos_4': env.dof_pos[robot_index, 4].item(),
+                    # 'dof_pos_5': env.dof_pos[robot_index, 5].item(),
+                    # 'dof_pos_6': env.dof_pos[robot_index, 6].item(),
+                    # 'dof_vel_7': env.dof_vel[robot_index, 7].item(),
+                    # 'dof_pos_8': env.dof_pos[robot_index, 8].item(),
+                    # 'dof_pos_9': env.dof_pos[robot_index, 9].item(),
+                    # 'dof_pos_10': env.dof_pos[robot_index, 10].item(),
+                    # 'dof_vel_11': env.dof_vel[robot_index, 11].item(),
+                    # 'dof_pos_12': env.dof_pos[robot_index, 12].item(),
+                    # 'dof_pos_13': env.dof_pos[robot_index, 13].item(),
+                    # 'dof_pos_14': env.dof_pos[robot_index, 14].item(),
+                    # 'dof_vel_15': env.dof_vel[robot_index, 15].item(),
                 }
             )
         elif i==stop_state_log:
@@ -143,5 +166,7 @@ if __name__ == '__main__':
     EXPORT_POLICY = True
     RECORD_FRAMES = False
     MOVE_CAMERA = False
-    args = get_args()
-    play(args, x_vel=0.0, y_vel=0.0, yaw_vel=0.0)
+    args = get_args([
+        dict(name="--load_cfg", action="store_true", default=True, help="use the config from the logdir"),
+    ])
+    play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0)
